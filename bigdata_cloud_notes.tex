@@ -30,6 +30,585 @@
 \noindent\emph{Витрина данных} (Data Mart) -- срез хранилища данных, представляющий собой массив тематической, узконаправленной информации, ориентированный, например, на пользователей одной рабочей группы или департамента.
 
 
+\section{Установка Hadoop на MacOS X}
+
+Установить \texttt{hadoop} на MacOS X можно с помощью менеджера пакетов \texttt{brew}
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+brew install hadoop
+\end{lstlisting}
+
+После установки Hadoop остается внести несколько изменений в конфигурационные файлы и настроить переменные окружения.
+
+В файле, расположенном
+
+по пути \texttt{/usr/local/Cellar/hadoop/3.3.0/libexec/etc/hadoop/hadoop-env.sh} изменить путь до JAVA\_HOME. Узнать домашнюю директорию java можно так
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+/usr/libexec/java_home # /usr/local/Cellar/openjdk/15.0.1
+\end{lstlisting}
+
+\begin{lstlisting}[
+title = {\sffamily /usr/local/Cellar/hadoop/3.3.0/libexec/etc/hadoop/hadoop-env.sh},
+style = bash,
+numbers = none	
+]
+# The java implementation to use...
+# variable ...
+export JAVA_HOME=/usr/local/Cellar/opejdk/15.0.1
+\end{lstlisting}
+
+Далее в файле \texttt{core-site.xml} нужно внести следующие изменения
+\begin{lstlisting}[
+title = {\sffamily core-site.xml},
+style = xml,
+numbers = none	
+]
+<!-- Put site-specific property overrides in this file. -->
+<configuration>
+	<property>
+		<name>hadoop.tmp.dir</name>
+		<value>/usr/local/Cellar/hadoop/hdfs/tmp</value>
+		<description>A base for other temporary directories</description>             
+	</property>
+	<property>
+		<name>fs.default.name</name>
+		<value>hdfs://localhost:8020</value>
+	</property>
+</configuration>
+\end{lstlisting}
+
+Теперь внесем изменения в файл \texttt{mapred-site.xml}
+\begin{lstlisting}[
+title = {\sffamily mapred-site.xml},
+style = xml,
+numbers = none	
+]
+<configuration>
+	<property>
+		<name>mapred.job.tracker</name>
+		<value>localhost:8021</value>
+	</property>
+</configuration>
+\end{lstlisting}
+
+И, наконец, внесем изменения в файл 
+\begin{lstlisting}[
+title = {\sffamily hdfs-site.xml},
+style = xml,
+numbers = none	
+]
+<configuration>
+	<property>
+		<name>dfs.replication</name>
+		<value>1</value>
+	</property>
+</configuration>
+\end{lstlisting}
+
+Проверим включен ли ssh
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+ssh localhost
+\end{lstlisting}
+
+Если эта команда вызывает ошибку, то следует настроить ssh следующим образом (нужно сообщить системе о ключах, которые мы собираемся использовать)
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa
+cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+chmod 0600 ~/.ssh/authorized_keys
+\end{lstlisting}
+
+Последним шагом требуется отформатировать HDFS
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+cd /usr/local/opt/hadoop
+hdfs namenode -format
+\end{lstlisting}
+
+Вывод последней команды должен содержать следующую строку
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+...
+2021-04-02 14:58:30,137 INFO common.Storage: Storage directory /usr/local/Cellar/hadoop/hdfs/tmp/dfs/name has been successfully formatted.
+\end{lstlisting}
+
+Теперь можно задать псевдоними для команд запуска и остановки hadoop сервисов
+\begin{lstlisting}[
+title = {\sffamily \~/.zshrc},
+style = bash,
+numbers = none	
+]
+alias hstart="/usr/local/Cellar/hadoop/3.3.0/sbin/start-all.sh"
+alias hstop="/usr/local/Cellar/hadoop/3.3.0/sbin/stop-all.sh"
+
+source ~/.zshrc
+\end{lstlisting}
+
+Теперь можно запустить Hadoop
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hstart
+\end{lstlisting}
+и проверить запущенные сервисы
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+jps
+# ----
+47728 ResourceManager
+47538 SecondaryNameNode
+47826 NodeManager
+47908 Jps
+47302 NameNode
+47401 DataNode
+\end{lstlisting}
+
+Получить доступ к Hadoop можно через web-интерфейс
+\begin{itemize}
+	\item \url{http://localhost:9870}: менеджер ресурсов,
+	
+	\item \url{http://localhost:8088}: трекер заданий,
+	
+	\item \url{http://localhost:8042}: информация по узлам.
+\end{itemize}
+
+\section{Компоненты экосистемы Hadoop}
+
+\emph{Avro} -- система сериализации для выполнения эффективных межъязыковых вызовов RPC и долгосрочного хранения данных.
+
+\emph{MapReduce} -- модель распределенной обработки данных и исполнительная среда, работающая на больших кластерах типовых машин.
+
+\emph{HDFS} -- распределенная файловая система, работающая на больших кластерах стандартных машин.
+
+\emph{Hive} -- распределенное хранилище данных. В принципе Hive можно называть платформой пакетного обработки или СУБД. Hive управляет данными, хранимыми в HDFS, и предоставляет язык запросов на базе SQL (которые преобразуются ядром времени выполнения в задания MapReduce) для работы с этими данными.
+
+\emph{HBase} -- распределенная нереляционная столбцово-ориентированная \emph{база данных}, построенная на основе HDFS. HBase использует HDFS для организации хранения данных и поддерживает как пакетные вычисления с использованием MapReduce, так и точечные запросы (произвольное чтение данных).
+
+\emph{Sqoop} -- инструмент эффективной массовой пересылки данных между структурированными хранилищами (такими, как реляционные базы данных) и HDFS.
+
+\emph{Oozie} -- сервис запуска и планирования заданий Hadoop (включая задания MapReduce, Pig, Hive и Sqoop jobs).
+
+\section{Apache Drill}
+
+\section{Apache HBase}
+
+HBase -- распределенная нереляционная (столбцово-ориентирования) база данных формата <<ключ-значение>>. 
+
+\subsection{Установка и запуск}
+
+Подробности, связанные с установкой различных режимах (автономном, распределенном и т.д.) можно узнать на странице \url{https://hbase.apache.org/book.html}.
+
+Скачать tar-архив можно здесь \url{https://www.apache.org/dyn/closer.lua/hbase/2.4.0/hbase-2.4.0-bin.tar.gz}
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+curl -O https://apache-mirror.rbc.ru/pub/apache/hbase/2.4.0/hbase-2.4.0-bin.tar.gz
+\end{lstlisting}
+
+Теперь следует распоковать архив
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+tar -xvzf hbase-2.4.0...
+\end{lstlisting}
+перейти в директорию \directory{hbase-2.4.0} и задать путь до java в файле \texttt{hbase-env.sh}, раскоментировав нужную строку
+\begin{lstlisting}[
+title = {\sffamily conf/hbase-env.sh},
+style = bash,
+numbers = none	
+]
+export JAVA_HOME=/usr/local/Cellar/openjdk/15.0.1
+\end{lstlisting}
+
+В конфигурационном файле команданой оболочки удобно задать переменные окружения для Java и HBase
+\begin{lstlisting}[
+title = {\sffamily \~{}/.zshrc},
+style = bash,
+numbers = none	
+]
+# for HBase
+export JAVA_HOME="/usr/local/Cellar/openjdk/15.0.1"
+export PATH="${PATH}:/Users/leor.finkelberg/hbase/hbase-2.4.0/bin"
+\end{lstlisting}
+
+Диреткорию размещения java на MacOS X следует искать с помощью менеджера пакетов \texttt{brew}
+\begin{lstlisting}[
+style = bash,
+numbers = none
+]
+brew list java # /usr/local/Cellar/openjdk/15.0.1/bin/java
+\end{lstlisting}
+
+ВАЖНО: обновить java, можно скачав соответствующую версию с ресурса \url{https://www.oracle.com/java/technologies/javase-jdk15-downloads.html}.
+
+Запустить HBase можно с помощью сценария командной оболочки из \directory{bin/}
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+start-hbase.sh
+\end{lstlisting}
+
+Подключиться к запущенному экземпляру можно так
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hbase shell
+\end{lstlisting}
+
+Для того чтобы убедиться, что процесс HMaster запущен можно воспользоваться утилитой~\texttt{jps}.
+
+Бывает удобно следить за работой приложения с помощью Web-интерфейса, доступного на \url{http://localhost:16010}.
+
+Закончить сессию можно с помощью команды \texttt{quit}. Затем нужно остановить HBase
+\begin{lstlisting}[
+style = bash,
+numbers = none
+]
+stop-hbase.sh
+\end{lstlisting}
+
+
+\section{Apache Cassandra}
+
+\section{Apache Kylin}
+
+
+\section{Apache Impala}
+
+Apache Impala -- это массово-параллельный механизм интерактивного выполнения SQL-запросов к данным, хранящимся в HDFS, HBase или Amazon Simple Storage (S3). Также Impala называют MPP-движком или \emph{распределенной СУБД}.
+
+Impala использует тот же синтаксис SQL (HiveQL), драйвер ODBC и пользовательский интерфейс как и Apache Hive.
+
+Чтобы избежать задержки, Impala обходит MapReduce для прямого доступа к данным с помощью специализированного механизма распределенных запросов. В результате производительность на порядок выше чем у Hive (платформа Hive построена на базе MapReduce).
+
+
+\section{Приемы работы с \texttt{hadoop fs}}
+
+ВАЖНО: при работе с локальной файловой системой, HDFS, WebHDFS, S3 FS и т.д. следует пользоваться \texttt{hadoop fs}, а при работе с HDFS -- \texttt{hdfs dfs}\footnote{\texttt{hdfs dfs} используется вместо \texttt{hadoop dfs}, считающейся устаревшей}.
+
+Вывести наполнение директории
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hdfs dfs -ls / # наполнение корня директории
+hdfs dfs -ls -d /hadoop
+hdfs dfs -ls -h /data
+hdfs dfs -ls -R /hadoop # вывести рекурсивно список всех файлов в поддиректориях hadoop
+hdfs dfs -ls /hadoop/dat* # вывести список всех файлов по шаблону
+\end{lstlisting}
+
+Вывести информацию об используемом дисковом пространстве
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hdfs dfs -df hdfs:/
+\end{lstlisting}
+
+Вывести информацию о здоровье файловой системы Hadoop
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hdfs fsck /
+\end{lstlisting}
+
+Создать директорию на HDFS
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hdfs dfs -mkdir /hadoop
+\end{lstlisting}
+
+Скопировать файл, расположенный в локальной файловой системе, на HDFS
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hdfs dfs -copyFromLocal ~/python_scripts /hadoop
+\end{lstlisting}
+
+Скопировать файл, расположенный на HDFS, в локальную файловую систему
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hdfs dfs -copyToLocal /hadoop/work/DBSCAN_test.py ~/GARBAGE
+\end{lstlisting}
+
+Задать значение фактора реплицирования (по умолчанию равен 3)
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hdfs dfs -setrep -w 2 /usr/sample
+\end{lstlisting}
+
+Скопировать директорию с одного узла кластера на другой
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hdfs dfs -distcp hdfs://namenodeA/apache_hadoop hdfs://namenodeB/hadoop
+\end{lstlisting}
+
+Вывести информацию по статистике файлов/директорий; здесь \verb|%b| -- блоки
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+hdfs dfs -stat "%F %u:%g %b %y %n" /hadoop/work/DBSCAN_test.py
+# regular file leor.finkelberg:supergroup 597 2021-04-02 22:01:50 DBSCAN_test.py
+\end{lstlisting}
+
+
+\section{Apache Hive}
+
+Apache Hive представляет собой \emph{систему управления базами данных} (СУБД), построенную поверх Hadoop. В официальной документации платформа описана как \emph{хранилище данных} (DWH). Apache Hive позволяет работать с данными, хранящимися в HDFS или HBase, с помощью языка HiveQL, очень близкому к стандартному SQL.
+
+ВАЖНО: Apache Hive не является реляционной базой данных, не поддерживает онлайн-транзакции (OLTP), в том числе обновления отдельных строк таблицы.
+
+Apache Hive более удобна в использовании по сравнению с Hadoop и Pig, поскольку не требует изучения специального доменно-специфичного языка (Pig Lating) или Java. А это значит, что платформа Hive является универсальной, то есть может быть задействована как
+\begin{itemize}
+	\item система \emph{пакетного} анализа,
+	
+	\item \emph{нереляционное хранилище данных},
+	
+	\item часть процесса ETL.
+\end{itemize}
+
+Hive и другие фреймворки, построенные \emph{на базе MapReduce}, лучше всего подходят для \emph{длительных пакетных заданий}, например, для пакетной обработки заданий типа ETL.
+
+При работе с Hive можно выделить следующие объекты
+\begin{itemize}
+	\item Базы данных,
+	
+	\item Таблицы,
+	
+	\item Партиции,
+	
+	\item Бакеты.
+\end{itemize}
+
+База данных в Hive представляет собой то же, что и база данных в реляционных СУБД. База данных в Hive -- это пространство имен, содержащее таблицы. Команда создания базы данных выглядит следующим образом
+\begin{lstlisting}[
+style = sql,
+numbers = none	
+]
+CREATE DATABASE|SCHEMA [IF NOT EXISTS] <database name>
+\end{lstlisting}
+
+Здесь \texttt{DATABASE} и \texttt{SCHEMA} одно и то же.
+
+Пример создания базы данных
+\begin{lstlisting}[
+style = sql,
+numbers = none	
+]
+CREATE DATABASE userdb;
+\end{lstlisting}
+
+Для переключения на соответствующую базу данных используется команда \texttt{USE}
+\begin{lstlisting}[
+style = sql,
+numbers = none	
+]
+USE userdb;
+\end{lstlisting}
+
+В целом таблицы в Hive представляют собой то же, что и таблицы в классических реляционных базах данных, но есть и отличия. Основное отличие таблиц Hive состоит в том, что они хранятся в виде \emph{обычных файлов} на HDFS. Это могут быть обычные текстовые csv-файлы, бинарные sequence-файлы, более сложные колоночные parquet-файлы и т.д.
+
+Пример создания таблицы
+\begin{lstlisting}[
+style = sql,
+numbers = none	
+]
+CREATE TABLE IF NOT EXISTS employee (
+  eid INT,
+  name STRING,
+  salary STRING,
+  destination STRING
+)
+COMMENT 'Employee details'
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+\end{lstlisting}
+
+Здесь создается таблица, данные которой будут храниться в виде обычных csv-файлов. Столбцы разделены символом табуляции. После этого можно загрузить данные в таблицу.
+
+Так как Hive по сути представляет собой движок для трансляции SQL-запросов в MapReduce-задачи, то обычно даже простейшие запросы к таблице приводят к полному сканированию данных в этой таблице. Для того чтобы избежать полного сканирования данных по некоторым столбцам таблицы можно провести партиционирование таблицы. Это означает, что данные, относящиеся к разным значениям будут физически храниться в разных папках на HDFS.
+
+Для создания партиционированной таблицы необходимо указать по каким столбцам будет выполняться партиционирование
+\begin{lstlisting}[
+style = sql,
+numbers = none
+]
+CREATE TABLE IF NOT EXISTS employee_partitioned (
+  eid INT,
+  name STRING,
+  salary STRING,
+  destination STRING
+)
+COMMENT 'Employee details'
+PARTITIONED BY (birth_year INT, birth_month STRING)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\t'
+LINES TERMINATED BY '\n'
+STORED AS TEXTFILE;
+\end{lstlisting}
+
+При заливке данных в такую таблицу необходимо явно указать, в какой партиции требуется разместить данные
+\begin{lstlisting}[
+style = sql,
+numbers = none	
+]
+LOAD DATA PATH '/user/root/sample.txt' OVERWRITE
+INTO TABLE employee_partitioned
+PARTITION (birth_year=1998, birth_month='May');
+\end{lstlisting}
+
+\subsection{Форматы хранения данных}
+
+Форматы хранения данных:
+\begin{itemize}
+	\item AVRO: формат на основе JSON, включающий поддержку RPC и сериализацию,
+	
+	\item Parquet: колоночный формат хранения,
+	
+	\item ORC: быстрый колоночный формат хранения,
+	
+	\item RCFile: формат размещения данных для реляционных таблиц,
+	
+	\item SequenceFile: бинарный формат данных с записью определенных типов данных.
+\end{itemize}
+
+\paragraph{Текстовый файл} Пример создания таблицы в текстовом формате. Формат текстового файла используется по умолчанию для Hive. 
+
+\begin{lstlisting}[
+style = sql,
+numbers = none	
+]
+CREATE TABLE country (
+  name STRING,
+  states ARRAY<STRING>,
+  cities_and_size MAP<STRING, INT>,
+  parties STRUCT<name STRING, votes FLOAT, members INT>
+)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY '\001'
+COLLECTION ITEMS TERMINATED BY '\002'
+MAP KEYS TERMINATED BY '\003'
+LINES TERMINATED BY '\n'
+STORED AS TextFile;
+\end{lstlisting}
+
+\paragraph{Файл последовательностей (SequenceFile)} Формат SequenceFile является значением по умолчанию в Hadoop и хранит данные в \emph{парах ключ-значение}. Большинство инструментов в экосистеме Hadoop могут читать формат SequenceFile
+\begin{lstlisting}[
+style = sql,
+numbers = none	
+]
+CREATE TABLE country (
+  name STRING,
+  population INT
+)
+STORED AS SequenceFile;
+\end{lstlisting}
+
+\paragraph{Файл столбцов строк (RCFile)} Грубо говоря, RCFile это стратегия хранения данных в формате <<строки столбцов>>. RCFile сочетает в себе достоинства как строко-ориентированных, так столбцово-ориентированных стратегий. Чтобы сериализовать таблицу, RCFile разбивает ее сначала по горизонтали, а затем по вертикали, вместо того чтобы разбить ее только по горизонтали, как это делается в обычных реляционных СУБД. Горизонтальное разбиение разбивает таблицу, как следует из названия стратегии, по горизонтали на несколько групп строк на основе заданного пользователем значения, определяющим размер группы строк.
+\begin{lstlisting}[
+style = sql,
+numbers = none	
+]
+CREATE TABLE country (
+	name STRING,
+	population INT
+)
+STORED AS RCFile;
+\end{lstlisting}
+
+Пример. Пусть есть таблица вида
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+c1 | c2 | c3 | c4
+---+----+----+---
+11 | 12 | 13 | 14
+21 | 22 | 23 | 24
+31 | 32 | 33 | 34
+41 | 42 | 43 | 44
+51 | 52 | 53 | 54
+\end{lstlisting}
+
+Как обсуждалось выше на первом этапе таблица разбивается по горизонтали на группы строк
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+c1 | c2 | c3 | c4
+---+----+----+---
+11 | 12 | 13 | 14
+-----------------
+21 | 22 | 23 | 24
+-----------------
+31 | 32 | 33 | 34
+================= -- граница групп строк
+41 | 42 | 43 | 44
+-----------------
+51 | 52 | 53 | 54
+\end{lstlisting}
+
+Затем в каждой группе строк RCFile разбивает данные по вертикали
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+1-ая группа         2-ая группа
+с1 | 11 | 21 | 31 || 41 | 51
+c2 | 12 | 22 | 32 || 42 | 52
+c3 | 13 | 23 | 33 || 43 | 53
+c4 | 14 | 24 | 34 || 44 | 54
+\end{lstlisting}
+
+То есть таблица будет сериализована как
+\begin{lstlisting}[
+style = bash,
+numbers = none	
+]
+11, 21, 31; 41, 51;
+12, 22, 32; 42, 52;
+13, 23, 33; 43, 53;
+14, 24, 34; 44, 54;
+\end{lstlisting}
+
+\paragraph{ORC файл} ORC файл следует рассматривать как альтернативу RCFile
+
+
 \section{Логическая витрина для доступа к большим данным}
 
 Пример. Рассмотрим некоторый промышленный комплекс, обладающий огромным количеством оборудования, обвешанного различными датчиками, регулярно сообщающими сведения о состоянии этого оборудования. Для простоты рассмострим только два аргрегата (котел и резервуар), и три датчика (температуры котла и резервуара, а также давления в котле).
@@ -55,8 +634,9 @@
 
 % Источники в "Газовой промышленности" нумеруются по мере упоминания 
 \begin{thebibliography}{99}\addcontentsline{toc}{section}{Список литературы}
-	\bibitem{lutz:learningpython-2011}{{\emph{Лутц М.} Изучаем Python, 4-е издание. -- Пер. с англ. -- СПб.: Символ-Плюс, 2011. -- 1280~с. }
-		
+	\bibitem{senko:bigdata-2019}{{\emph{Сенько А.} Работа с BigData в облаках. Обработка и хранение данных с примерами из Microsoft Azure. -- СПб.: Питер, 2019. -- 448~с. }
+	
+	\bibitem{white:hadoop-2013}{ {\emph{Уайт Т.} Hadoop: Подробное руководство. -- СПб.: Питер, 2013. -- 672 с.} }
 \end{thebibliography}
 
 \end{document}
